@@ -3,63 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sync Player [Standalone]</title>
+    <title>Sync Player Pro</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
 
     <style>
-        /* --- MINIMAL DARK THEME --- */
-        body { background: #000; color: #fff; font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        /* --- THEME --- */
+        body { background: #121212; color: #fff; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* CONTROLS */
-        .top-bar { background: #111; padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px; }
-        input { flex: 1; background: #222; border: 1px solid #444; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; }
-        button { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; }
+        /* 1. TOP BAR */
+        .top-bar { background: #1e1e1e; padding: 8px; border-bottom: 1px solid #333; display: flex; gap: 8px; align-items: center; height: 50px; }
+        .input-group { flex: 1; display: flex; gap: 5px; }
+        input.url-input { flex: 1; background: #333; border: 1px solid #555; color: #0f0; padding: 5px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; }
+        
+        button { padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 0.8rem; white-space: nowrap; }
         .btn-list { background: #9c27b0; }
         .btn-play { background: #2196f3; }
         .btn-invite { background: #e91e63; }
         
-        /* VIDEO STAGE */
-        .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+        /* 2. VIDEO STAGE (30% HEIGHT) */
+        .stage { 
+            height: 30vh; background: #000; position: relative; 
+            display: flex; justify-content: center; align-items: center; 
+            border-bottom: 2px solid #333;
+        }
         #video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; object-fit: contain; }
         iframe { width: 100%; height: 100%; border: none; }
         
-        /* OVERLAYS */
-        #flash-overlay { position: absolute; font-size: 4rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; text-shadow: 0 2px 10px black; }
+        /* SYNC FLASH OVERLAY */
+        #flash-overlay { 
+            position: absolute; font-size: 3rem; opacity: 0; transition: opacity 0.2s; 
+            pointer-events: none; text-shadow: 0 2px 10px black; z-index: 10; font-weight: 900;
+        }
         #flash-overlay.active { opacity: 1; }
+
+        /* 3. CUSTOM CONTROL BAR */
+        .control-deck {
+            background: #111; padding: 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #333;
+        }
+        .seek-row { display: flex; align-items: center; gap: 10px; }
+        .btn-seek { background: #333; color: #ccc; width: 40px; font-size: 1.2rem; padding: 5px 0; }
         
+        /* SLIDER STYLING */
+        input[type=range] {
+            flex: 1; -webkit-appearance: none; background: transparent; height: 5px; cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track { background: #444; height: 5px; border-radius: 5px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 15px; width: 15px; background: #2196f3; border-radius: 50%; margin-top: -5px; }
+
+        /* 4. HOST / CHAT AREA (Remaining Height) */
+        .info-area { flex: 1; overflow-y: auto; padding: 15px; background: #000; }
+        
+        .host-panel { 
+            background: #2a1b0a; border: 1px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; 
+        }
+        .host-title { color: #ff9800; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .status-log { font-family: monospace; font-size: 0.8rem; color: #666; margin-top: 10px; }
+        .log-item { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+        .log-sys { color: #00e676; }
+
         /* EMBED MODAL */
         #embed-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: none; flex-direction: column; padding: 20px; }
         #embed-modal.show { display: flex; }
-        #embed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; margin-top: 10px; }
-        .card { background: #111; border: 1px solid #333; aspect-ratio: 16/9; cursor: pointer; position: relative; }
+        #embed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; margin-top: 10px; }
+        .card { background: #111; border: 1px solid #333; aspect-ratio: 16/9; cursor: pointer; position: relative; border-radius: 4px; }
         .card:hover { border-color: #2196f3; }
-        .card-title { font-size: 0.8rem; text-align: center; color: #ccc; padding: 5px; }
+        .card-title { font-size: 0.75rem; text-align: center; color: #ccc; padding: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* LOGS */
-        #status-bar { padding: 5px 10px; background: #111; border-top: 1px solid #333; font-size: 0.8rem; color: #888; }
     </style>
 </head>
 <body>
 
     <div class="top-bar">
-        <button class="btn-list" onclick="toggleEmbeds()">📂 LIST</button>
-        <input type="text" id="url-input" placeholder="Paste Link (MP4 / Xvideos / Iframe)...">
-        <button class="btn-play" onclick="playMedia()">▶ PLAY</button>
-        <button class="btn-invite" onclick="copyInvite()">🔗 INVITE</button>
+        <button class="btn-list" onclick="toggleEmbeds()">📂</button>
+        <div class="input-group">
+            <input type="text" id="url-input" class="url-input" placeholder="Paste Link...">
+            <button class="btn-play" onclick="playMedia()">▶</button>
+        </div>
+        <button class="btn-invite" onclick="copyInvite()">🔗</button>
     </div>
 
     <div class="stage">
-        <div id="video-container"></div>
+        <div id="video-container">
+            <div style="color:#444; text-align:center; margin-top:10%;">Waiting for video...</div>
+        </div>
         <div id="flash-overlay"></div>
     </div>
 
-    <div id="status-bar">System Ready.</div>
+    <div class="control-deck">
+        <div class="seek-row">
+            <button class="btn-seek" onclick="userSeek(-10)">⏪</button>
+            <input type="range" id="seek-slider" min="0" max="100" value="0" step="0.1" oninput="isDragging=true" onchange="finishDrag(this.value)">
+            <button class="btn-seek" onclick="userSeek(10)">⏩</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; color:#888; font-size:0.7rem;">
+            <span id="time-cur">00:00</span>
+            <span id="time-dur">00:00</span>
+        </div>
+    </div>
+
+    <div class="info-area">
+        
+        <div id="host-panel" class="host-panel">
+            <div class="host-title">👑 Host Controls</div>
+            <div style="font-size:0.8rem; color:#ccc; margin-bottom:10px;">
+                Connected Guests: <span id="guest-count" style="color:white; font-weight:bold;">0</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="forceSyncAll()" style="background:#ff9800; color:black; flex:1;">⚡ FORCE SYNC ALL</button>
+                <button onclick="location.reload()" style="background:#333; color:#aaa;">Reset</button>
+            </div>
+        </div>
+
+        <div style="font-size:0.8rem; color:#aaa; font-weight:bold; margin-bottom:5px;">ACTIVITY LOG</div>
+        <div id="status-log" class="status-log"></div>
+    </div>
 
     <div id="embed-modal">
-        <div style="display:flex; justify-content:space-between;">
-            <h3>Video Library</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; color:#9c27b0;">Video Library</h3>
             <button onclick="toggleEmbeds()" style="background:none; font-size:1.5rem;">✖</button>
         </div>
         <div id="embed-grid">Loading...</div>
@@ -74,26 +138,24 @@
         let connections = [];
         let isHost = false;
         let isSyncing = false;
+        let isDragging = false; // Slider drag state
+        
         let ytPlayer = null;
-        let lastYtTime = 0;
+        let nativeVid = null;
+        let duration = 0;
+        let updateInterval = null;
 
         // --- 1. INITIALIZATION ---
         window.onload = function() {
-            log("🚀 Starting System...");
+            log("🚀 System Started.");
             const hash = window.location.hash.substring(1);
             initPeer(hash);
             
-            // Auto-sync loop for YouTube
-            setInterval(() => {
-                if (ytPlayer && ytPlayer.getCurrentTime && !isSyncing) {
-                    const t = ytPlayer.getCurrentTime();
-                    if (Math.abs(t - lastYtTime) > 2) sendSync('seek', t);
-                    lastYtTime = t;
-                }
-            }, 1000);
+            // Global Update Loop for Slider & Time
+            updateInterval = setInterval(updateUI, 500);
         };
 
-        // --- 2. NETWORK (WEBRTC) ---
+        // --- 2. NETWORK ---
         function initPeer(targetId) {
             peer = new Peer(null, { debug: 1 });
             
@@ -104,7 +166,8 @@
                     connectTo(targetId);
                 } else {
                     isHost = true;
-                    log("You are HOST. Invite others.");
+                    document.getElementById('host-panel').style.display = 'block';
+                    log("👑 You are the HOST.");
                 }
             });
 
@@ -120,55 +183,63 @@
         function setupConn(conn) {
             conn.on('open', () => {
                 connections.push(conn);
-                log("Connected to: " + conn.peer);
+                updateGuestCount();
+                log("Connected: " + conn.peer.substring(0,5));
+                
                 if(isHost) {
-                     // If playing something, sync the new user
-                     const vid = document.querySelector('video');
-                     if(vid) conn.send({type:'sync', action:'load', url: vid.src});
+                    // Sync new user immediately
+                    const curTime = getCurrentTime();
+                    const src = getCurrentSrc();
+                    if(src) conn.send({type:'sync', action:'load', url:src, val: curTime});
                 }
             });
             conn.on('data', handleData);
-            conn.on('close', () => connections = connections.filter(c => c !== conn));
+            conn.on('close', () => {
+                connections = connections.filter(c => c !== conn);
+                updateGuestCount();
+                log("User Disconnected");
+            });
         }
 
         function handleData(data) {
-            // Relay if Host
-            if(isHost) connections.forEach(c => { if(c.open && c.peer !== peer.id) c.send(data); });
-
+            if(isHost) broadcast(data, data.peerId); // Relay
             if(data.type === 'sync') applySync(data);
         }
 
-        function broadcast(data) {
-            connections.forEach(c => { if(c.open) c.send(data); });
+        function broadcast(data, excludeId = null) {
+            connections.forEach(c => { 
+                if(c.open && c.peer !== excludeId) c.send(data); 
+            });
         }
 
-        // --- 3. PLAYER & EXTRACTION LOGIC ---
+        function updateGuestCount() {
+            document.getElementById('guest-count').innerText = connections.length;
+        }
+
+        // --- 3. PLAYER & CONTROLS ---
         async function playMedia(urlOverride = null, title = "Custom") {
             let url = urlOverride || document.getElementById('url-input').value.trim();
             if(!url) return;
 
-            // CLEANUP: Extract URL from Iframe HTML
+            // Simple Cleanup
             if (url.includes('<iframe') || url.includes('src=')) {
                 const match = url.match(/src=["'](.*?)["']/);
                 if(match) url = match[1];
             }
 
-            // EXTRACTOR ENGINE
+            // Extractor
             if (url.includes('xvideos') || url.includes('embedframe')) {
-                log("⚙️ Extracting MP4...");
+                log("⚙️ Extracting...");
                 try {
                     const res = await fetch(SCRIPT_URL + "?type=extract&url=" + encodeURIComponent(url));
                     const json = await res.json();
                     if(json.status === 'success' && json.mp4) {
                         url = json.mp4;
-                        log("✅ Extracted! Playing Native.");
-                    } else {
-                        log("⚠️ Extraction failed. Playing Iframe.");
-                    }
-                } catch(e) { log("Error extracting."); }
+                        log("✅ Extracted MP4!");
+                    } else log("⚠️ Extract Failed. Using Iframe.");
+                } catch(e) { log("Extract Error."); }
             }
 
-            // LOAD LOCALLY & SYNC
             loadVideo(url);
             broadcast({type: 'sync', action: 'load', url: url});
         }
@@ -176,115 +247,151 @@
         function loadVideo(url) {
             const cont = document.getElementById('video-container');
             cont.innerHTML = '';
-            ytPlayer = null;
+            ytPlayer = null; nativeVid = null;
 
             if(url.includes('youtube') || url.includes('youtu.be')) {
                 let vidId = url.split('v=')[1] || url.split('/').pop();
                 const div = document.createElement('div'); div.id = 'yt-player'; cont.appendChild(div);
                 ytPlayer = new YT.Player('yt-player', {
                     height: '100%', width: '100%', videoId: vidId,
-                    playerVars: { 'autoplay': 1, 'controls': 1 },
+                    playerVars: { 'autoplay': 1, 'controls': 0 }, // Hide YT controls to use ours
                     events: {
+                        'onReady': () => duration = ytPlayer.getDuration(),
                         'onStateChange': (e) => {
-                            if(!isSyncing) {
-                                if(e.data == 1) sendSync('play', ytPlayer.getCurrentTime());
-                                if(e.data == 2) sendSync('pause', ytPlayer.getCurrentTime());
-                            }
+                             if(!isSyncing && isHost) {
+                                 if(e.data == 1) sendSync('play', ytPlayer.getCurrentTime());
+                                 if(e.data == 2) sendSync('pause', ytPlayer.getCurrentTime());
+                             }
                         }
                     }
                 });
             } else if(url.endsWith('.mp4') || url.includes('.mp4?') || url.includes('googlevideo')) {
-                // Native MP4
-                const vid = document.createElement('video');
-                vid.src = url; vid.controls = true; vid.autoplay = true;
-                cont.appendChild(vid);
+                nativeVid = document.createElement('video');
+                nativeVid.src = url; nativeVid.controls = false; nativeVid.autoplay = true; // Hide Native controls
+                cont.appendChild(nativeVid);
                 
-                vid.onplay = () => sendSync('play', vid.currentTime);
-                vid.onpause = () => sendSync('pause', vid.currentTime);
-                vid.onseeked = () => sendSync('seek', vid.currentTime);
+                nativeVid.onloadedmetadata = () => duration = nativeVid.duration;
+                nativeVid.onplay = () => !isSyncing && sendSync('play', nativeVid.currentTime);
+                nativeVid.onpause = () => !isSyncing && sendSync('pause', nativeVid.currentTime);
             } else {
-                // Fallback Iframe
-                cont.innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
+                cont.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>`;
             }
         }
 
-        // --- 4. SYNC HANDLERS ---
+        // --- 4. SEEK & SLIDER LOGIC ---
+        function userSeek(offset) {
+            const cur = getCurrentTime();
+            const newTime = cur + offset;
+            finishDrag(newTime);
+        }
+
+        function finishDrag(val) {
+            isDragging = false;
+            sendSync('seek', parseFloat(val));
+        }
+
+        function updateUI() {
+            if(isDragging) return; // Don't update slider while dragging
+            
+            const cur = getCurrentTime();
+            if(duration > 0) {
+                document.getElementById('seek-slider').max = duration;
+                document.getElementById('seek-slider').value = cur;
+                document.getElementById('time-cur').innerText = formatTime(cur);
+                document.getElementById('time-dur').innerText = formatTime(duration);
+            }
+        }
+
+        function getCurrentTime() {
+            if(ytPlayer && ytPlayer.getCurrentTime) return ytPlayer.getCurrentTime();
+            if(nativeVid) return nativeVid.currentTime;
+            return 0;
+        }
+        
+        function getCurrentSrc() {
+            if(ytPlayer) return ytPlayer.getVideoUrl();
+            if(nativeVid) return nativeVid.src;
+            return null;
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m}:${sec < 10 ? '0' + sec : sec}`;
+        }
+
+        // --- 5. SYNC HANDLERS ---
         function sendSync(action, val) {
             if(isSyncing) return;
             broadcast({type: 'sync', action: action, val: val});
             showFlash(action.toUpperCase());
+            
+            // Apply locally if native/yt logic didn't trigger it
+            if(action === 'seek') applySync({action: 'seek', val: val}, true); 
         }
 
-        function applySync(data) {
+        function applySync(data, isLocal = false) {
             isSyncing = true;
+            if(!isLocal) showFlash(data.action.toUpperCase());
+
             if(data.action === 'load') loadVideo(data.url);
-            
+
             if(ytPlayer && ytPlayer.playVideo) {
-                if(data.action === 'play') {
-                    if(Math.abs(ytPlayer.getCurrentTime() - data.val) > 1) ytPlayer.seekTo(data.val);
-                    ytPlayer.playVideo();
-                }
+                if(data.action === 'play') { ytPlayer.seekTo(data.val); ytPlayer.playVideo(); }
                 if(data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.val); }
-                if(data.action === 'seek') ytPlayer.seekTo(data.val);
-            } else {
-                const vid = document.querySelector('video');
-                if(vid) {
-                    if(data.action === 'play') {
-                        if(Math.abs(vid.currentTime - data.val) > 1) vid.currentTime = data.val;
-                        vid.play();
-                    }
-                    if(data.action === 'pause') { vid.pause(); vid.currentTime = data.val; }
-                    if(data.action === 'seek') vid.currentTime = data.val;
-                }
+                if(data.action === 'seek') { ytPlayer.seekTo(data.val); }
+            } 
+            else if(nativeVid) {
+                if(data.action === 'play') { nativeVid.currentTime = data.val; nativeVid.play(); }
+                if(data.action === 'pause') { nativeVid.pause(); nativeVid.currentTime = data.val; }
+                if(data.action === 'seek') { nativeVid.currentTime = data.val; }
             }
-            showFlash(data.action.toUpperCase());
+            
             setTimeout(() => isSyncing = false, 500);
         }
 
-        // --- 5. EMBED SHEET LOGIC ---
+        function forceSyncAll() {
+            const cur = getCurrentTime();
+            const src = getCurrentSrc();
+            if(src) broadcast({type:'sync', action:'play', val: cur, url: src}); // Re-send Load+Play
+            showFlash("FORCING SYNC");
+        }
+
+        // --- 6. UTILS & MODALS ---
         async function toggleEmbeds() {
             const modal = document.getElementById('embed-modal');
-            if(modal.style.display === 'flex') {
-                modal.style.display = 'none';
-            } else {
-                modal.style.display = 'flex';
-                const grid = document.getElementById('embed-grid');
-                grid.innerHTML = "Fetching...";
-                
+            if(modal.style.display === 'flex') { modal.style.display = 'none'; return; }
+            modal.style.display = 'flex';
+            
+            const grid = document.getElementById('embed-grid');
+            if(grid.innerHTML.includes('Loading')) {
                 try {
                     const res = await fetch(SCRIPT_URL + "?type=embeds");
                     const list = await res.json();
                     grid.innerHTML = "";
-                    
                     list.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'card';
-                        
+                        const div = document.createElement('div'); div.className = 'card';
                         let thumb = '';
                         const ytMatch = item.code.match(/embed\/([^"/?]+)/);
                         if(ytMatch) thumb = `<img src="https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover;">`;
-                        else thumb = `<div style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center;font-size:2rem;">🌐</div>`;
-
+                        else thumb = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#333;">🌐</div>`;
                         div.innerHTML = `${thumb}<div class="card-title">${item.name}</div>`;
-                        div.onclick = () => {
-                            playMedia(item.code, item.name);
-                            modal.style.display = 'none';
-                        };
+                        div.onclick = () => { playMedia(item.code, item.name); modal.style.display = 'none'; };
                         grid.appendChild(div);
                     });
                 } catch(e) { grid.innerHTML = "Error loading list."; }
             }
         }
 
-        // --- UTILS ---
         function copyInvite() {
             const url = window.location.href.split('#')[0] + '#' + myPeerId;
             navigator.clipboard.writeText(url);
-            log("🔗 Link Copied!");
+            log("🔗 Invite Copied!");
         }
 
         function log(msg) {
-            document.getElementById('status-bar').innerText = msg;
+            const box = document.getElementById('status-log');
+            box.innerHTML = `<div class="log-item"><span class="log-sys">[SYS]</span> ${msg}</div>` + box.innerHTML;
         }
 
         function showFlash(text) {
