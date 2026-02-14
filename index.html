@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>⚡ Sync & Extractor Test</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <style>
+        body { background: #121212; color: white; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* TEST DASHBOARD HEADER */
+        .test-header {
+            padding: 15px; background: #1e1e1e; border-bottom: 1px solid #333;
+            display: flex; gap: 10px; align-items: center; justify-content: center;
+        }
+        input.test-input {
+            width: 60%; padding: 10px; background: #333; border: 1px solid #555; color: #00e676; font-family: monospace;
+        }
+        button.test-btn {
+            padding: 10px 20px; cursor: pointer; background: #2196f3; color: white; border: none; font-weight: bold;
+        }
+        button.invite-btn { background: #e91e63; }
+
+        /* VIDEO AREA */
+        .video-wrapper { flex: 1; background: black; position: relative; display: flex; justify-content: center; align-items: center; }
+        #video-container { width: 100%; height: 100%; max-width: 1000px; }
+        
+        /* LOGS */
+        .log-area { height: 150px; background: #000; border-top: 1px solid #333; padding: 10px; overflow-y: auto; font-size: 0.8rem; }
+        .msg.sys { color: #ff9800; }
+        .msg.partner { color: #2196f3; }
+
+        /* --- REQUIRED HIDDEN ELEMENTS (To prevent JS Errors) --- */
+        .hidden-requirements { display: none !important; }
+        
+        /* FLASH OVERLAYS */
+        #embed-flash-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.2s; text-shadow: 0 2px 5px black;
+        }
+        #embed-flash-overlay.active { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="test-header">
+        <div style="font-weight:bold; color:#aaa;">TESTER:</div>
+        <input type="text" id="custom-link" class="test-input" placeholder="Paste Xvideos/Iframe here to test Extractor...">
+        <button class="test-btn" onclick="playCustomMedia()">▶ EXTRACT & PLAY</button>
+        
+        <button class="test-btn invite-btn" id="btn-invite" onclick="copyInvite()">🔗 COPY INVITE</button>
+    </div>
+
+    <div class="video-wrapper">
+        <div id="video-container">
+            <div style="color:#555; text-align:center; padding-top:20%;">Waiting for link...</div>
+        </div>
+        
+        <div id="embed-flash-overlay"></div>
+        <div id="sync-warning" style="position:absolute; top:0; width:100%; text-align:center; background:#cc0000; display:none;"></div>
+        
+        <div class="tap-layer" style="position:absolute; width:100%; height:100%; top:0; left:0; pointer-events:none;">
+            <div id="zone-left" style="width:50%; height:100%; float:left; pointer-events:auto;"></div>
+            <div id="zone-right" style="width:50%; height:100%; float:right; pointer-events:auto;"></div>
+        </div>
+    </div>
+
+    <div class="log-area" id="msg-box">
+        <div class="msg sys">System Ready. Paste a link above to test.</div>
+    </div>
+
+    <div class="hidden-requirements">
+        <div id="cam-section"></div>
+        <div id="local-cam-box"><video id="local-video"></video></div>
+        <div id="remote-cam-box"><video id="remote-video"></video></div>
+        <button id="btn-host-mic"></button>
+        <button id="btn-mic-guest"></button>
+        <button id="btn-host-cam"></button>
+        <button id="btn-hide-guests"></button>
+        
+        <div id="host-panel"><div id="host-content"></div><button class="toggle-host-btn"></button></div>
+        
+        <input type="file" id="local-file-input">
+        <input type="range" oninput="adjustVolume(this.value)">
+        <button id="btn-share-top"></button>
+        <button id="btn-mute-local"><span id="icon-mute"></span></button>
+        
+        <div id="grid-modal"></div>
+        <div id="embed-modal"><div id="embed-body"></div></div>
+        <div id="yt-search-modal"><div id="yt-results-body"></div></div>
+        <div id="flip-modal"></div>
+        <div id="cam-request-modal"></div>
+        
+        <div id="file-progress-box"><div id="file-progress-bar"></div><div id="file-progress-text"></div></div>
+        
+        <div id="embed-controls"></div>
+        <button id="btn-next-img"></button>
+        <input type="text" id="chat-input">
+        <input type="text" id="grid-search">
+        <input type="text" id="room-id-join">
+    </div>
+
+    <script src="global.js"></script>
+    <script src="network.js"></script>
+    <script src="camera.js"></script>
+    <script src="video.js"></script>
+    <script src="chat.js"></script>
+    <script src="game.js"></script>
+    <script src="ui.js"></script>
+    <script src="main.js"></script>
+
+    <script>
+        window.onload = function() {
+            console.log("🚀 Test Mode: Auto-starting Watch2Gether...");
+            startWatch2Gether();
+            
+            // Override logMsg to scroll automatically
+            const originalLog = logMsg;
+            logMsg = function(msg, type) {
+                originalLog(msg, type);
+                const box = document.getElementById('msg-box');
+                box.scrollTop = box.scrollHeight;
+            };
+        };
+    </script>
+</body>
+</html>
