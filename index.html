@@ -3,126 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>⚡ Sync & Extractor Test</title>
+    <title>Sync Player [Standalone]</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
+
     <style>
-        body { background: #121212; color: white; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
+        /* --- MINIMAL DARK THEME --- */
+        body { background: #000; color: #fff; font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* TEST DASHBOARD HEADER */
-        .test-header {
-            padding: 15px; background: #1e1e1e; border-bottom: 1px solid #333;
-            display: flex; gap: 10px; align-items: center; justify-content: center;
-        }
-        input.test-input {
-            width: 60%; padding: 10px; background: #333; border: 1px solid #555; color: #00e676; font-family: monospace;
-        }
-        button.test-btn {
-            padding: 10px 20px; cursor: pointer; background: #2196f3; color: white; border: none; font-weight: bold;
-        }
-        button.invite-btn { background: #e91e63; }
+        /* CONTROLS */
+        .top-bar { background: #111; padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px; }
+        input { flex: 1; background: #222; border: 1px solid #444; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-list { background: #9c27b0; }
+        .btn-play { background: #2196f3; }
+        .btn-invite { background: #e91e63; }
+        
+        /* VIDEO STAGE */
+        .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+        #video-container { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* OVERLAYS */
+        #flash-overlay { position: absolute; font-size: 4rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; text-shadow: 0 2px 10px black; }
+        #flash-overlay.active { opacity: 1; }
+        
+        /* EMBED MODAL */
+        #embed-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: none; flex-direction: column; padding: 20px; }
+        #embed-modal.show { display: flex; }
+        #embed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; margin-top: 10px; }
+        .card { background: #111; border: 1px solid #333; aspect-ratio: 16/9; cursor: pointer; position: relative; }
+        .card:hover { border-color: #2196f3; }
+        .card-title { font-size: 0.8rem; text-align: center; color: #ccc; padding: 5px; }
 
-        /* VIDEO AREA */
-        .video-wrapper { flex: 1; background: black; position: relative; display: flex; justify-content: center; align-items: center; }
-        #video-container { width: 100%; height: 100%; max-width: 1000px; }
-        
         /* LOGS */
-        .log-area { height: 150px; background: #000; border-top: 1px solid #333; padding: 10px; overflow-y: auto; font-size: 0.8rem; }
-        .msg.sys { color: #ff9800; }
-        .msg.partner { color: #2196f3; }
-
-        /* --- REQUIRED HIDDEN ELEMENTS (To prevent JS Errors) --- */
-        .hidden-requirements { display: none !important; }
-        
-        /* FLASH OVERLAYS */
-        #embed-flash-overlay {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 3rem; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.2s; text-shadow: 0 2px 5px black;
-        }
-        #embed-flash-overlay.active { opacity: 1; }
+        #status-bar { padding: 5px 10px; background: #111; border-top: 1px solid #333; font-size: 0.8rem; color: #888; }
     </style>
 </head>
 <body>
 
-    <div class="test-header">
-        <div style="font-weight:bold; color:#aaa;">TESTER:</div>
-        <input type="text" id="custom-link" class="test-input" placeholder="Paste Xvideos/Iframe here to test Extractor...">
-        <button class="test-btn" onclick="playCustomMedia()">▶ EXTRACT & PLAY</button>
-        
-        <button class="test-btn invite-btn" id="btn-invite" onclick="copyInvite()">🔗 COPY INVITE</button>
+    <div class="top-bar">
+        <button class="btn-list" onclick="toggleEmbeds()">📂 LIST</button>
+        <input type="text" id="url-input" placeholder="Paste Link (MP4 / Xvideos / Iframe)...">
+        <button class="btn-play" onclick="playMedia()">▶ PLAY</button>
+        <button class="btn-invite" onclick="copyInvite()">🔗 INVITE</button>
     </div>
 
-    <div class="video-wrapper">
-        <div id="video-container">
-            <div style="color:#555; text-align:center; padding-top:20%;">Waiting for link...</div>
+    <div class="stage">
+        <div id="video-container"></div>
+        <div id="flash-overlay"></div>
+    </div>
+
+    <div id="status-bar">System Ready.</div>
+
+    <div id="embed-modal">
+        <div style="display:flex; justify-content:space-between;">
+            <h3>Video Library</h3>
+            <button onclick="toggleEmbeds()" style="background:none; font-size:1.5rem;">✖</button>
         </div>
-        
-        <div id="embed-flash-overlay"></div>
-        <div id="sync-warning" style="position:absolute; top:0; width:100%; text-align:center; background:#cc0000; display:none;"></div>
-        
-        <div class="tap-layer" style="position:absolute; width:100%; height:100%; top:0; left:0; pointer-events:none;">
-            <div id="zone-left" style="width:50%; height:100%; float:left; pointer-events:auto;"></div>
-            <div id="zone-right" style="width:50%; height:100%; float:right; pointer-events:auto;"></div>
-        </div>
+        <div id="embed-grid">Loading...</div>
     </div>
-
-    <div class="log-area" id="msg-box">
-        <div class="msg sys">System Ready. Paste a link above to test.</div>
-    </div>
-
-    <div class="hidden-requirements">
-        <div id="cam-section"></div>
-        <div id="local-cam-box"><video id="local-video"></video></div>
-        <div id="remote-cam-box"><video id="remote-video"></video></div>
-        <button id="btn-host-mic"></button>
-        <button id="btn-mic-guest"></button>
-        <button id="btn-host-cam"></button>
-        <button id="btn-hide-guests"></button>
-        
-        <div id="host-panel"><div id="host-content"></div><button class="toggle-host-btn"></button></div>
-        
-        <input type="file" id="local-file-input">
-        <input type="range" oninput="adjustVolume(this.value)">
-        <button id="btn-share-top"></button>
-        <button id="btn-mute-local"><span id="icon-mute"></span></button>
-        
-        <div id="grid-modal"></div>
-        <div id="embed-modal"><div id="embed-body"></div></div>
-        <div id="yt-search-modal"><div id="yt-results-body"></div></div>
-        <div id="flip-modal"></div>
-        <div id="cam-request-modal"></div>
-        
-        <div id="file-progress-box"><div id="file-progress-bar"></div><div id="file-progress-text"></div></div>
-        
-        <div id="embed-controls"></div>
-        <button id="btn-next-img"></button>
-        <input type="text" id="chat-input">
-        <input type="text" id="grid-search">
-        <input type="text" id="room-id-join">
-    </div>
-
-    <script src="global.js"></script>
-    <script src="network.js"></script>
-    <script src="camera.js"></script>
-    <script src="video.js"></script>
-    <script src="chat.js"></script>
-    <script src="game.js"></script>
-    <script src="ui.js"></script>
-    <script src="main.js"></script>
 
     <script>
+        // --- CONFIG ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7cLsL5ZVH5GsYxwNAWX03YjI6fC0x6NbvqOPh-phhiSupTsJmQaFFwd1jbYJNp7rp/exec";
+        
+        // --- GLOBALS ---
+        let peer, myPeerId;
+        let connections = [];
+        let isHost = false;
+        let isSyncing = false;
+        let ytPlayer = null;
+        let lastYtTime = 0;
+
+        // --- 1. INITIALIZATION ---
         window.onload = function() {
-            console.log("🚀 Test Mode: Auto-starting Watch2Gether...");
-            startWatch2Gether();
+            log("🚀 Starting System...");
+            const hash = window.location.hash.substring(1);
+            initPeer(hash);
             
-            // Override logMsg to scroll automatically
-            const originalLog = logMsg;
-            logMsg = function(msg, type) {
-                originalLog(msg, type);
-                const box = document.getElementById('msg-box');
-                box.scrollTop = box.scrollHeight;
-            };
+            // Auto-sync loop for YouTube
+            setInterval(() => {
+                if (ytPlayer && ytPlayer.getCurrentTime && !isSyncing) {
+                    const t = ytPlayer.getCurrentTime();
+                    if (Math.abs(t - lastYtTime) > 2) sendSync('seek', t);
+                    lastYtTime = t;
+                }
+            }, 1000);
         };
+
+        // --- 2. NETWORK (WEBRTC) ---
+        function initPeer(targetId) {
+            peer = new Peer(null, { debug: 1 });
+            
+            peer.on('open', (id) => {
+                myPeerId = id;
+                if(targetId) {
+                    log("Connecting to Host...");
+                    connectTo(targetId);
+                } else {
+                    isHost = true;
+                    log("You are HOST. Invite others.");
+                }
+            });
+
+            peer.on('connection', setupConn);
+            peer.on('error', e => log("Peer Error: " + e.type));
+        }
+
+        function connectTo(id) {
+            const conn = peer.connect(id);
+            setupConn(conn);
+        }
+
+        function setupConn(conn) {
+            conn.on('open', () => {
+                connections.push(conn);
+                log("Connected to: " + conn.peer);
+                if(isHost) {
+                     // If playing something, sync the new user
+                     const vid = document.querySelector('video');
+                     if(vid) conn.send({type:'sync', action:'load', url: vid.src});
+                }
+            });
+            conn.on('data', handleData);
+            conn.on('close', () => connections = connections.filter(c => c !== conn));
+        }
+
+        function handleData(data) {
+            // Relay if Host
+            if(isHost) connections.forEach(c => { if(c.open && c.peer !== peer.id) c.send(data); });
+
+            if(data.type === 'sync') applySync(data);
+        }
+
+        function broadcast(data) {
+            connections.forEach(c => { if(c.open) c.send(data); });
+        }
+
+        // --- 3. PLAYER & EXTRACTION LOGIC ---
+        async function playMedia(urlOverride = null, title = "Custom") {
+            let url = urlOverride || document.getElementById('url-input').value.trim();
+            if(!url) return;
+
+            // CLEANUP: Extract URL from Iframe HTML
+            if (url.includes('<iframe') || url.includes('src=')) {
+                const match = url.match(/src=["'](.*?)["']/);
+                if(match) url = match[1];
+            }
+
+            // EXTRACTOR ENGINE
+            if (url.includes('xvideos') || url.includes('embedframe')) {
+                log("⚙️ Extracting MP4...");
+                try {
+                    const res = await fetch(SCRIPT_URL + "?type=extract&url=" + encodeURIComponent(url));
+                    const json = await res.json();
+                    if(json.status === 'success' && json.mp4) {
+                        url = json.mp4;
+                        log("✅ Extracted! Playing Native.");
+                    } else {
+                        log("⚠️ Extraction failed. Playing Iframe.");
+                    }
+                } catch(e) { log("Error extracting."); }
+            }
+
+            // LOAD LOCALLY & SYNC
+            loadVideo(url);
+            broadcast({type: 'sync', action: 'load', url: url});
+        }
+
+        function loadVideo(url) {
+            const cont = document.getElementById('video-container');
+            cont.innerHTML = '';
+            ytPlayer = null;
+
+            if(url.includes('youtube') || url.includes('youtu.be')) {
+                let vidId = url.split('v=')[1] || url.split('/').pop();
+                const div = document.createElement('div'); div.id = 'yt-player'; cont.appendChild(div);
+                ytPlayer = new YT.Player('yt-player', {
+                    height: '100%', width: '100%', videoId: vidId,
+                    playerVars: { 'autoplay': 1, 'controls': 1 },
+                    events: {
+                        'onStateChange': (e) => {
+                            if(!isSyncing) {
+                                if(e.data == 1) sendSync('play', ytPlayer.getCurrentTime());
+                                if(e.data == 2) sendSync('pause', ytPlayer.getCurrentTime());
+                            }
+                        }
+                    }
+                });
+            } else if(url.endsWith('.mp4') || url.includes('.mp4?') || url.includes('googlevideo')) {
+                // Native MP4
+                const vid = document.createElement('video');
+                vid.src = url; vid.controls = true; vid.autoplay = true;
+                cont.appendChild(vid);
+                
+                vid.onplay = () => sendSync('play', vid.currentTime);
+                vid.onpause = () => sendSync('pause', vid.currentTime);
+                vid.onseeked = () => sendSync('seek', vid.currentTime);
+            } else {
+                // Fallback Iframe
+                cont.innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
+            }
+        }
+
+        // --- 4. SYNC HANDLERS ---
+        function sendSync(action, val) {
+            if(isSyncing) return;
+            broadcast({type: 'sync', action: action, val: val});
+            showFlash(action.toUpperCase());
+        }
+
+        function applySync(data) {
+            isSyncing = true;
+            if(data.action === 'load') loadVideo(data.url);
+            
+            if(ytPlayer && ytPlayer.playVideo) {
+                if(data.action === 'play') {
+                    if(Math.abs(ytPlayer.getCurrentTime() - data.val) > 1) ytPlayer.seekTo(data.val);
+                    ytPlayer.playVideo();
+                }
+                if(data.action === 'pause') { ytPlayer.pauseVideo(); ytPlayer.seekTo(data.val); }
+                if(data.action === 'seek') ytPlayer.seekTo(data.val);
+            } else {
+                const vid = document.querySelector('video');
+                if(vid) {
+                    if(data.action === 'play') {
+                        if(Math.abs(vid.currentTime - data.val) > 1) vid.currentTime = data.val;
+                        vid.play();
+                    }
+                    if(data.action === 'pause') { vid.pause(); vid.currentTime = data.val; }
+                    if(data.action === 'seek') vid.currentTime = data.val;
+                }
+            }
+            showFlash(data.action.toUpperCase());
+            setTimeout(() => isSyncing = false, 500);
+        }
+
+        // --- 5. EMBED SHEET LOGIC ---
+        async function toggleEmbeds() {
+            const modal = document.getElementById('embed-modal');
+            if(modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                modal.style.display = 'flex';
+                const grid = document.getElementById('embed-grid');
+                grid.innerHTML = "Fetching...";
+                
+                try {
+                    const res = await fetch(SCRIPT_URL + "?type=embeds");
+                    const list = await res.json();
+                    grid.innerHTML = "";
+                    
+                    list.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'card';
+                        
+                        let thumb = '';
+                        const ytMatch = item.code.match(/embed\/([^"/?]+)/);
+                        if(ytMatch) thumb = `<img src="https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover;">`;
+                        else thumb = `<div style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center;font-size:2rem;">🌐</div>`;
+
+                        div.innerHTML = `${thumb}<div class="card-title">${item.name}</div>`;
+                        div.onclick = () => {
+                            playMedia(item.code, item.name);
+                            modal.style.display = 'none';
+                        };
+                        grid.appendChild(div);
+                    });
+                } catch(e) { grid.innerHTML = "Error loading list."; }
+            }
+        }
+
+        // --- UTILS ---
+        function copyInvite() {
+            const url = window.location.href.split('#')[0] + '#' + myPeerId;
+            navigator.clipboard.writeText(url);
+            log("🔗 Link Copied!");
+        }
+
+        function log(msg) {
+            document.getElementById('status-bar').innerText = msg;
+        }
+
+        function showFlash(text) {
+            const f = document.getElementById('flash-overlay');
+            f.innerText = text; f.classList.add('active');
+            setTimeout(() => f.classList.remove('active'), 1000);
+        }
     </script>
 </body>
 </html>
