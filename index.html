@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Logic Tester</title>
+    <style>
+        body { background-color: #121212; color: #00e676; font-family: 'Courier New', monospace; padding: 20px; }
+        h2 { border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .control-box { background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px; }
+        
+        input[type="text"] {
+            width: 100%; padding: 12px; background: #333; border: 1px solid #555; 
+            color: white; font-family: monospace; border-radius: 4px; margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px; cursor: pointer; font-weight: bold; border: none; border-radius: 4px;
+            margin-right: 10px; margin-bottom: 10px; transition: 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        
+        .btn-vid { background: #2196f3; color: white; }
+        .btn-emb { background: #9c27b0; color: white; }
+        .btn-ext { background: #ff9800; color: black; }
+        .btn-clr { background: #333; color: #aaa; }
+
+        #console-output {
+            background: #000; color: #ccc; padding: 15px; border: 1px solid #333;
+            border-radius: 4px; min-height: 300px; white-space: pre-wrap; overflow-x: auto;
+        }
+        .log-success { color: #00e676; }
+        .log-error { color: #ff5252; }
+        .log-info { color: #2196f3; }
+    </style>
+</head>
+<body>
+
+    <h2>🛠️ System Logic Tester</h2>
+    <p style="color:#aaa; font-size:0.9rem;">Use this to verify your new code.gs deployment before using it on the main site.</p>
+
+    <div class="control-box">
+        <label><strong>Step 1: Paste Your New Web App URL</strong></label>
+        <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/..../exec">
+        
+        <label><strong>Step 2: Run Tests</strong></label>
+        <br>
+        <button class="btn-vid" onclick="testFunction('videos')">1. Fetch Videos (SV1)</button>
+        <button class="btn-emb" onclick="testFunction('embeds')">2. Fetch Embeds (SV2)</button>
+        <button class="btn-ext" onclick="testFunction('extract')">3. Test Extractor</button>
+        <button class="btn-clr" onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div id="console-output">Waiting for input...</div>
+
+    <script>
+        function log(msg, type='normal') {
+            const box = document.getElementById('console-output');
+            const date = new Date().toLocaleTimeString();
+            let colorClass = '';
+            if(type === 'success') colorClass = 'log-success';
+            else if(type === 'error') colorClass = 'log-error';
+            else if(type === 'info') colorClass = 'log-info';
+
+            box.innerHTML += `<div class="${colorClass}">[${date}] ${msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('console-output').innerHTML = 'Log cleared.<br>';
+        }
+
+        async function testFunction(mode) {
+            const scriptUrl = document.getElementById('script-url').value.trim();
+            if(!scriptUrl) {
+                log("❌ Error: Please paste the Script URL first.", "error");
+                return;
+            }
+
+            let fullUrl = scriptUrl;
+            
+            if (mode === 'videos') {
+                log("🚀 Testing SV1 (Video List)...", "info");
+                // Default fetch (no params)
+            } 
+            else if (mode === 'embeds') {
+                log("🚀 Testing SV2 (Embed List)...", "info");
+                fullUrl += "?type=embeds";
+            }
+            else if (mode === 'extract') {
+                const testTarget = prompt("Enter a URL to try extracting (e.g. an xvideos embed link):", "https://www.xvideos.com/embedframe/kbieecdccef");
+                if(!testTarget) return;
+                log(`🚀 Testing Extractor on: ${testTarget}`, "info");
+                fullUrl += `?type=extract&url=${encodeURIComponent(testTarget)}`;
+            }
+
+            try {
+                const startTime = Date.now();
+                const res = await fetch(fullUrl);
+                const json = await res.json();
+                const duration = Date.now() - startTime;
+
+                log(`✅ Response received in ${duration}ms`, "success");
+                log(JSON.stringify(json, null, 2)); // Pretty print JSON
+
+                if(mode === 'extract') {
+                    if(json.status === 'success' && json.mp4) {
+                        log("🎉 EXTRACTION SUCCESSFUL! Link found.", "success");
+                        log("MP4 Link: " + json.mp4, "success");
+                    } else {
+                        log("⚠️ Extraction returned a response but no MP4 found.", "error");
+                    }
+                }
+
+            } catch(e) {
+                log("❌ FETCH ERROR: " + e.message, "error");
+                log("This usually means CORS is blocking it, or the deployment is not set to 'Anyone'.", "error");
+            }
+        }
+    </script>
+</body>
+</html>
